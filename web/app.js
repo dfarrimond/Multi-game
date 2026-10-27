@@ -162,7 +162,7 @@
     return o;
   }
 
-  function celebrate({ title, detail, onAgain, onHome }) {
+  function celebrate({ title, detail, onAgain, onHome, onKeepGoing }) {
     Sound.play('cheer');
     say(`Hooray! ${title}`);
     const ps = players();
@@ -177,6 +177,7 @@
       detail,
       h('div', { class: 'overlay-actions' },
         h('button', { class: 'play-btn', onclick: onAgain }, '🔁', h('span', {}, 'Again')),
+        onKeepGoing && h('button', { class: 'play-btn secondary', onclick: () => { o.remove(); onKeepGoing(); } }, '▶️', h('span', {}, 'Keep going')),
         h('button', { class: 'play-btn secondary', onclick: onHome }, '🏠', h('span', {}, 'Home'))),
     );
     o.prepend(confetti);
@@ -287,9 +288,10 @@
     ctrl = game.create(body, {
       players: ps, level, opts: choice, saved, bar,
       save: state => store.set('save.' + game.id, { choice, state }),
-      finish: (title, detail) => {
+      // onKeepGoing, if given, lets play continue after the celebration.
+      finish: (title, detail, onKeepGoing) => {
         store.del('save.' + game.id);
-        celebrate({ title, detail, onAgain: () => playGame(game, choice, null), onHome: showHome });
+        celebrate({ title, detail, onKeepGoing, onAgain: () => playGame(game, choice, null), onHome: showHome });
       },
     });
     keepAwake();
@@ -783,12 +785,11 @@
         }
         if (!alive) return;
         placeAll(true);
-        if (st.pos[seat] >= N && !st.done[seat]) {
+        const justHome = st.pos[seat] >= N && !st.done[seat];
+        if (justHome) {
           st.done[seat] = true;
-          Sound.play('home');
-          say(`${ps[seat].name} is home!`);
           ctx.bar.bag(seat).textContent = '🏁';
-          await sleep(1200);
+          await sleep(600);
           if (!alive) return;
         }
         if (st.done.every(Boolean)) {
@@ -798,6 +799,15 @@
         const other = 1 - seat;
         st.turn = st.done[other] ? seat : other;
         ctx.save(st);
+        if (justHome) {
+          // First one home: start again straight away, or let the other player finish.
+          ctx.finish(`${ps[seat].name} got home!`, h('p', {}, `${ps[seat].emoji} 🏁`), () => {
+            ctx.save(st);
+            Sound.play('turn');
+            showTurn(true);
+          });
+          return;
+        }
         if (st.turn !== seat) Sound.play('turn');
         showTurn(true);
       }

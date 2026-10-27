@@ -428,7 +428,7 @@ h1, h2, h3 { font-family: var(--display); margin: 0; line-height: 1.05; text-wra
 .cheer-faces span { animation: jump .7s ease-in-out infinite; }
 .cheer-faces span:nth-child(2) { animation-delay: .35s; }
 @keyframes jump { 50% { transform: translateY(-14px) rotate(8deg); } }
-.overlay-actions { display: flex; gap: 14px; }
+.overlay-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; }
 .overlay-actions .play-btn { min-width: 120px; min-height: 64px; font-size: 22px; }
 .haul { display: flex; flex-direction: column; gap: 4px; font-size: 22px; }
 .haul div { display: flex; align-items: center; gap: 8px; justify-content: center; }
