@@ -71,7 +71,9 @@ journeys: offline, quiet when it needs to be, and quick to pick up and put down.
 18. **One shared game framework.** Players, turns, celebrations, sounds,
     pause/resume and the parent gate are written once and reused by every
     game, so adding a game later is cheap.
-19. **Universal app.** Supports iPhone and iPad, iOS 17+, landscape only.
+19. **iPhone only.** iOS 17+, landscape only. Layouts are designed for the
+    smallest supported screen (iPhone SE, 667x375pt) and scale up, and stay
+    clear of the notch/Dynamic Island and the home indicator.
 20. **Testable game logic.** Game rules live in plain Swift types with unit
     tests, separate from rendering.
 
@@ -111,6 +113,9 @@ nobody's fault.
   cheer.
 - **Board sizes:** small (20 squares, 3 snakes and 3 ladders, die with 1–3
   spots), medium (50 squares, standard die) and classic (100 squares).
+  On iPhone, the medium and classic boards are taller than the screen, so
+  the board scrolls and the view follows the counter that's moving. Players
+  only ever tap the die and the counter, never a small square.
 - **No exact roll needed to finish** by default: going past the last square
   still counts. "Exact finish" is an option for older children.
 - **Everyone gets home.** When the first player reaches the end, play carries
@@ -220,8 +225,9 @@ Roles: **Parent**, **Toddler**, **Players** (both together).
    - Bubble Pop's "pop only one colour" mode is available from the start.
    - Easier levels stay in for tired days. Noughts & Crosses is a realistic
      reserve game at this age.
-2. **iPhone, iPad or both?** iPad makes split-screen games much
-   nicer; iPhone is what's usually in your pocket on a train.
+2. ~~**iPhone, iPad or both?**~~ **Answered: iPhone only.** On a phone,
+   Bubble Pop's halves are about 330pt wide each, which is still plenty for
+   bubbles of 80pt or more.
 3. **Do you have a Mac with Xcode, and an Apple Developer account?**
    You need Xcode to build and run on a device. A free account can sideload
    to your own phone (re-signing every 7 days); a paid account allows
