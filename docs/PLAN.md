@@ -203,6 +203,11 @@ Roles: **Parent**, **Toddler**, **Players** (both together).
 
 ## 5. Suggested build order
 
+0. **Web MVP (done, in `web/`):** all three games as a Safari web app, to
+   play-test on real journeys before Xcode is available. It covers the home
+   screen, player animals, press-and-hold to leave, sound and voice toggles,
+   save and resume (Animal Pairs, Snakes & Ladders), and celebrations.
+   Lessons from play-testing feed into the native build below.
 1. **Foundation:** Xcode project, app shell, home screen, player setup,
    parent gate, sound manager, pause/resume, shared turn and celebration
    components. (US-01–09, 21–27)
