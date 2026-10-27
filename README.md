@@ -13,9 +13,11 @@ build step.
 
 - **Run locally:** `python3 -m http.server -d web 8000`, then open
   <http://localhost:8000>.
-- **On an iPhone:** host `web/` on any HTTPS static host, open it in
-  Safari, then Share → Add to Home Screen. It opens full screen and the
-  service worker (`sw.js`) caches it for offline play.
+- **On an iPhone:** the repo is set up for GitHub Pages (deploy from a
+  branch, root folder). The root `index.html` redirects to `web/`. Open
+  <https://dfarrimond.github.io/Multi-game/web/> in Safari, then
+  Share → Add to Home Screen. It opens full screen and the service worker
+  (`sw.js`) caches it for offline play.
 - **Single-file build:** `python3 scripts/build_artifact.py out.html` inlines
   the CSS and JS into one page, for hosts that wrap the page themselves.
 
