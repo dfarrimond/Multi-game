@@ -23,6 +23,11 @@
   --b2: #FF9EC7;
   --b3: #9BE38E;
   --b4: #FFD166;
+  --l0: #E5484D; --l0-soft: #FBD9DA;
+  --l1: #2F9E55; --l1-soft: #D3EFDC;
+  --l2: #F2B91F; --l2-soft: #FCEFC4;
+  --l3: #2F6FD0; --l3-soft: #D5E3F8;
+  --cell: #FFFFFF; --cell-line: #C6D6D0;
   --display: "Baloo 2", "Chalkboard SE", "Comic Sans MS", ui-rounded, system-ui, sans-serif;
   --body: "Nunito", ui-rounded, system-ui, -apple-system, sans-serif;
   --radius: 18px;
@@ -36,6 +41,9 @@
     --sun: #FFD067; --sun-soft: #4A3D1C; --leaf: #5BC27D; --track: #B39A85;
     --sq-a: #3A3622; --sq-b: #20382B; --sq-c: #233249; --sq-d: #3F2833;
     --press: 0 4px 0 rgba(0, 0, 0, .45);
+    --l0: #FF6B6F; --l0-soft: #4A2426; --l1: #5BC27D; --l1-soft: #1F3B2A;
+    --l2: #FFD067; --l2-soft: #4A3D1C; --l3: #6EA2F2; --l3-soft: #22385A;
+    --cell: #1D2F3C; --cell-line: #33495A;
     color-scheme: dark;
   }
 }
@@ -46,6 +54,9 @@
   --sun: #FFD067; --sun-soft: #4A3D1C; --leaf: #5BC27D; --track: #B39A85;
   --sq-a: #3A3622; --sq-b: #20382B; --sq-c: #233249; --sq-d: #3F2833;
   --press: 0 4px 0 rgba(0, 0, 0, .45);
+  --l0: #FF6B6F; --l0-soft: #4A2426; --l1: #5BC27D; --l1-soft: #1F3B2A;
+  --l2: #FFD067; --l2-soft: #4A3D1C; --l3: #6EA2F2; --l3-soft: #22385A;
+  --cell: #1D2F3C; --cell-line: #33495A;
   color-scheme: dark;
 }
 
@@ -120,7 +131,7 @@ h1, h2, h3 { font-family: var(--display); margin: 0; line-height: 1.05; text-wra
 .train {
   position: relative;
   display: grid;
-  grid-template-columns: auto repeat(3, minmax(0, 1fr));
+  grid-template-columns: auto repeat(var(--cars, 3), minmax(0, 1fr));
   align-items: end;
   gap: 14px;
   padding-bottom: 12px;
@@ -181,10 +192,10 @@ h1, h2, h3 { font-family: var(--display); margin: 0; line-height: 1.05; text-wra
 .tip { font: 600 13px var(--body); color: var(--muted); max-width: 32ch; }
 
 @media (orientation: portrait) {
-  .train { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .train { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 20px; }
   .engine { display: none; }
   .carriage { height: 150px; }
-  .carriage:first-of-type::before { display: none; }
+  .carriage:nth-of-type(odd)::before { display: none; }
 }
 
 /* ---------- Setup ---------- */
@@ -402,6 +413,45 @@ h1, h2, h3 { font-family: var(--display); margin: 0; line-height: 1.05; text-wra
   .die { width: 96px; height: 96px; }
 }
 
+/* ---------- Ludo ---------- */
+.lc0 { --seat: var(--l0); --seat-soft: var(--l0-soft); }
+.lc1 { --seat: var(--l1); --seat-soft: var(--l1-soft); }
+.lc2 { --seat: var(--l2); --seat-soft: var(--l2-soft); }
+.lc3 { --seat: var(--l3); --seat-soft: var(--l3-soft); }
+.chip-face { position: relative; }
+.chip.cpu .chip-face::after { content: "🤖"; position: absolute; right: -6px; bottom: -6px; font-size: 15px; }
+.ludo { position: absolute; inset: 0; display: flex; gap: 10px; }
+.ludo-side { flex: none; display: flex; }
+.game-ludo .topbar { flex-direction: column; justify-content: flex-start; gap: 10px; }
+.game-ludo .topbar-spacer { display: none; }
+.game-ludo .chips { flex-direction: column; gap: 6px; }
+.game-ludo .chip { padding: 2px; flex-direction: column; gap: 0; border-radius: 26px; }
+.game-ludo .chip-face { width: 38px; height: 38px; font-size: 24px; }
+.game-ludo .chip-bag { font-size: 10px; letter-spacing: 0; color: var(--seat); }
+.game-ludo .chip-bag:empty { display: none; }
+.game-ludo .die { border-color: var(--seat); }
+.ludo-wrap { flex: 1; min-width: 0; min-height: 0; display: flex; align-items: center; justify-content: center; }
+.ludo-board { position: relative; flex: none; }
+.ludo-board svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.ludo-token { position: absolute; left: 0; top: 0; width: calc(var(--cs) * .9); height: calc(var(--cs) * .9); z-index: 2; pointer-events: none; will-change: transform; }
+.ludo-token.moving { transition: transform .18s ease-out; }
+.ludo-token.slow { transition: transform .6s ease-in-out; }
+.ludo-token-face {
+  width: 100%; height: 100%; box-sizing: border-box; border-radius: 50%;
+  background: var(--seat); border: 2px solid var(--cell);
+  display: grid; place-items: center; font-size: calc(var(--cs) * .58);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, .3);
+}
+.ludo-token.movable { z-index: 4; }
+.ludo-token.movable .ludo-token-face { animation: pulse .9s ease-in-out infinite; box-shadow: 0 0 0 3px var(--ink); }
+@keyframes pulse { 50% { transform: scale(1.3); } }
+@media (orientation: portrait) {
+  .ludo { flex-direction: column; }
+  .game-ludo .topbar { flex-direction: row; width: 100%; }
+  .game-ludo .chips { flex-direction: row; }
+  .ludo .panel { flex: none; flex-direction: row; }
+}
+
 /* ---------- Celebration & dialogs ---------- */
 .overlay {
   position: fixed; inset: 0; z-index: 30;
@@ -426,7 +476,7 @@ h1, h2, h3 { font-family: var(--display); margin: 0; line-height: 1.05; text-wra
 .overlay-card p { margin: 0; color: var(--muted); font-weight: 700; }
 .cheer-faces { display: flex; gap: 18px; font-size: clamp(44px, 16vh, 72px); }
 .cheer-faces span { animation: jump .7s ease-in-out infinite; }
-.cheer-faces span:nth-child(2) { animation-delay: .35s; }
+.cheer-faces span:nth-child(even) { animation-delay: .35s; }
 @keyframes jump { 50% { transform: translateY(-14px) rotate(8deg); } }
 .overlay-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; }
 .overlay-actions .play-btn { min-width: 120px; min-height: 64px; font-size: 22px; }

@@ -145,8 +145,8 @@
   }
 
   function turnBar(ps, onHome) {
-    const chips = ps.map(p => h('div', { class: `chip seat${p.seat}` },
-      h('span', { class: 'chip-face', 'aria-label': p.name }, p.emoji), h('span', { class: 'chip-bag' })));
+    const chips = ps.map(p => h('div', { class: `chip ${p.cls || 'seat' + p.seat}${p.cpu ? ' cpu' : ''}` },
+      h('span', { class: 'chip-face', 'aria-label': p.cpu ? `${p.name} (computer)` : p.name }, p.emoji), h('span', { class: 'chip-bag' })));
     const el = h('div', { class: 'topbar' },
       holdButton('🏠', 'Go home', onHome), h('div', { class: 'chips' }, chips), h('div', { class: 'topbar-spacer' }));
     return {
@@ -162,17 +162,16 @@
     return o;
   }
 
-  function celebrate({ title, detail, onAgain, onHome, onKeepGoing }) {
+  function celebrate({ ps, title, detail, onAgain, onHome, onKeepGoing }) {
     Sound.play('cheer');
     say(`Hooray! ${title}`);
-    const ps = players();
     const confetti = h('div', { class: 'confetti', 'aria-hidden': 'true' });
     const bits = ['🎉', '⭐', '🎈', '✨', '🌟', ps[0].emoji, ps[1].emoji];
     for (let i = 0; i < 28; i++) {
       confetti.append(h('span', { style: `left:${rand(100)}%;animation-duration:${2 + Math.random() * 2.5}s;animation-delay:${Math.random() * 1.2}s` }, bits[rand(bits.length)]));
     }
     const o = overlay(
-      h('div', { class: 'cheer-faces', 'aria-hidden': 'true' }, ps.map(p => h('span', {}, p.emoji))),
+      h('div', { class: 'cheer-faces', 'aria-hidden': 'true' }, ps.slice(0, 4).map(p => h('span', {}, p.emoji))),
       h('h2', {}, title),
       detail,
       h('div', { class: 'overlay-actions' },
@@ -212,7 +211,7 @@
           toggle('sound', '🔊', '🔇', 'Sound'),
           toggle('voice', '🗣️', '🤐', 'Spoken words'),
           h('button', { class: 'icon-btn', 'aria-label': 'Tips for grown-ups', onclick: showHelp }, 'ℹ️'))),
-      h('div', { class: 'train' },
+      h('div', { class: 'train', style: `--cars:${GAMES.length}` },
         h('div', { class: 'engine', 'aria-hidden': 'true' }, '🚂'),
         GAMES.map(g => h('button', { class: `carriage c-${g.id}`, onclick: () => { Sound.play('tap'); say(g.name); showSetup(g); } },
           h('span', { class: 'carriage-window', 'aria-hidden': 'true' }, g.icon),
@@ -277,7 +276,7 @@
 
   /* ---------- Game frame ---------- */
   function playGame(game, choice, saved) {
-    const ps = players();
+    const ps = game.players ? game.players(choice) : players();
     const level = game.levels.find(l => l.id === choice.level) || game.levels.find(l => l.id === game.defaultLevel);
     const screen = h('div', { class: `screen game game-${game.id}` });
     const body = h('div', { class: 'game-body' });
@@ -291,7 +290,7 @@
       // onKeepGoing, if given, lets play continue after the celebration.
       finish: (title, detail, onKeepGoing) => {
         store.del('save.' + game.id);
-        celebrate({ title, detail, onKeepGoing, onAgain: () => playGame(game, choice, null), onHome: showHome });
+        celebrate({ ps, title, detail, onKeepGoing, onAgain: () => playGame(game, choice, null), onHome: showHome });
       },
     });
     keepAwake();
@@ -825,7 +824,377 @@
     },
   };
 
-  const GAMES = [PAIRS, BUBBLES, SNAKES];
+  /* ---------- Game 4: Ludo ---------- */
+  // The 52-square loop as [row, col] on a 15x15 grid, clockwise from red's start.
+  const LUDO_TRACK = (() => {
+    const t = [];
+    const run = (r, c, dr, dc, n) => { for (let i = 0; i < n; i++) t.push([r + dr * i, c + dc * i]); };
+    run(6, 1, 0, 1, 5); run(5, 6, -1, 0, 6); run(0, 7, 0, 1, 2); run(1, 8, 1, 0, 5);
+    run(6, 9, 0, 1, 6); run(7, 14, 1, 0, 2); run(8, 13, 0, -1, 5); run(9, 8, 1, 0, 6);
+    run(14, 7, 0, -1, 2); run(13, 6, -1, 0, 5); run(8, 5, 0, -1, 6); run(7, 0, -1, 0, 2);
+    return t;
+  })();
+  const LUDO_START = [0, 13, 26, 39];
+  const LUDO_SAFE = new Set([0, 8, 13, 21, 26, 34, 39, 47]);
+  const LUDO_HOME_COL = [0, 1, 2, 3].map(s => [1, 2, 3, 4, 5].map(k =>
+    [[7, k], [k, 7], [7, 14 - k], [14 - k, 7]][s]));
+  const LUDO_YARD = [[0, 0], [0, 9], [9, 9], [9, 0]];
+  const LUDO_FINISH = [{ x: 6.6, y: 7.5 }, { x: 7.5, y: 6.6 }, { x: 8.4, y: 7.5 }, { x: 7.5, y: 8.4 }];
+  // A token's progress: -1 in the yard, 0-50 round the loop, 51-55 up its home column, 56 home.
+  const YARD = -1, LAST_LOOP = 50, HOME = 56;
+  const DIE_PIPS = { 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
+
+  const LUDO = {
+    id: 'ludo', name: 'Ludo', icon: '🎲',
+    levelLabel: 'People playing',
+    levels: [
+      { id: '1', label: '1 person', sub: '+ 3 computer', icon: '🧒' },
+      { id: '2', label: '2 people', sub: '+ 2 computer', icon: '👫' },
+      { id: '3', label: '3 people', sub: '+ 1 computer', icon: '👪' },
+      { id: '4', label: '4 people', sub: 'no computer', icon: '👨‍👩‍👧‍👦' },
+    ],
+    defaultLevel: '2',
+    options: [{ id: 'tokens', label: 'Counters each', choices: [
+      { id: '2', label: '2', sub: 'quicker game', icon: '⚡' }, { id: '4', label: '4', sub: 'classic', icon: '🏆' },
+    ] }],
+    defaultOpts: { tokens: '2' },
+
+    // People take the first seats (with the two chosen animals); computers fill the rest.
+    players(choice) {
+      const humans = +choice.level || 2;
+      const spare = CHARACTERS.map((_, i) => i).filter(i => !settings.players.includes(i));
+      return [0, 1, 2, 3].map(seat => {
+        const c = seat < 2 && seat < humans ? settings.players[seat] : spare.shift();
+        return { seat, emoji: CHARACTERS[c][0], name: CHARACTERS[c][1], cpu: seat >= humans, cls: `lc${seat}` };
+      });
+    },
+
+    create(root, ctx) {
+      const ps = ctx.players;
+      const nTok = ctx.opts.tokens === '4' ? 4 : 2;
+      let st = ctx.saved;
+      if (!st || st.tok?.length !== 4 || st.tok[0].length !== nTok) {
+        st = { tok: ps.map(() => Array(nTok).fill(YARD)), turn: 0, tries: 0, out: [], keepGoing: false };
+      }
+      let alive = true;
+      let phase = 'idle';
+      let rolled = 0;
+      let moves = [];
+      let cell = 20;
+      const shown = ps.map(() => []); // where each token was last drawn, in cell units
+
+      const absOf = (seat, p) => (LUDO_START[seat] + p) % 52;
+      const playing = seat => !st.out.includes(seat);
+
+      /* Board */
+      const art = svg('svg', { viewBox: '0 0 15 15', 'aria-hidden': 'true' });
+      const add = (tag, attrs) => { const e = svg(tag, attrs); art.append(e); return e; };
+      const line = 'stroke:var(--cell-line);stroke-width:.04';
+      add('rect', { x: 0, y: 0, width: 15, height: 15, rx: 0.3, style: 'fill:var(--cell)' });
+      LUDO_TRACK.forEach(([r, c], i) => {
+        const owner = LUDO_START.indexOf(i);
+        add('rect', { x: c, y: r, width: 1, height: 1, style: `fill:${owner >= 0 ? `var(--l${owner})` : 'var(--cell)'};${line}` });
+        if (LUDO_SAFE.has(i) && owner < 0) {
+          add('text', { x: c + 0.5, y: r + 0.78, 'font-size': 0.8, 'text-anchor': 'middle', style: 'fill:var(--muted)' }).textContent = '★';
+        }
+      });
+      LUDO_HOME_COL.forEach((cells, s) => cells.forEach(([r, c]) =>
+        add('rect', { x: c, y: r, width: 1, height: 1, style: `fill:var(--l${s});${line}` })));
+      LUDO_YARD.forEach(([r, c], s) => {
+        add('rect', { x: c, y: r, width: 6, height: 6, style: `fill:var(--l${s})` });
+        add('rect', { x: c + 0.7, y: r + 0.7, width: 4.6, height: 4.6, rx: 0.6, style: 'fill:var(--cell)' });
+        for (let i = 0; i < nTok; i++) {
+          const q = yardSpot(s, i);
+          add('circle', { cx: q.x, cy: q.y, r: 0.62, style: `fill:var(--l${s}-soft);stroke:var(--l${s});stroke-width:.08` });
+        }
+      });
+      [['6,6 6,9 7.5,7.5', 0], ['6,6 9,6 7.5,7.5', 1], ['9,6 9,9 7.5,7.5', 2], ['6,9 9,9 7.5,7.5', 3]]
+        .forEach(([points, s]) => add('polygon', { points, style: `fill:var(--l${s})` }));
+
+      function yardSpot(seat, i) {
+        const [r, c] = LUDO_YARD[seat];
+        return { x: c + (i % 2 ? 4.25 : 1.75), y: r + (i < 2 ? 1.75 : 4.25) };
+      }
+      function spotOf(seat, i, p) {
+        if (p === YARD) return { key: `y${seat}${i}`, ...yardSpot(seat, i) };
+        if (p <= LAST_LOOP) { const a = absOf(seat, p); const [r, c] = LUDO_TRACK[a]; return { key: `m${a}`, x: c + 0.5, y: r + 0.5 }; }
+        if (p < HOME) { const [r, c] = LUDO_HOME_COL[seat][p - 51]; return { key: `h${seat}${p}`, x: c + 0.5, y: r + 0.5 }; }
+        return { key: `f${seat}`, ...LUDO_FINISH[seat] };
+      }
+
+      const board = h('div', { class: 'ludo-board' }, art);
+      const tokEls = ps.map(p => st.tok[p.seat].map(() => {
+        const el = h('div', { class: `ludo-token lc${p.seat}` }, h('div', { class: 'ludo-token-face' }, p.emoji));
+        board.append(el);
+        return el;
+      }));
+
+      // Draw every token, fanning out any that share a square.
+      function drawTokens(how = '') {
+        const groups = {};
+        ps.forEach(p => st.tok[p.seat].forEach((prog, i) => {
+          const sp = spotOf(p.seat, i, prog);
+          (groups[sp.key] ||= []).push({ seat: p.seat, i, sp });
+        }));
+        for (const list of Object.values(groups)) {
+          list.forEach(({ seat, i, sp }, k) => {
+            const n = list.length;
+            const ang = (k / n) * Math.PI * 2 - Math.PI / 4;
+            const spread = n > 1 ? 0.24 : 0;
+            const x = sp.x + Math.cos(ang) * spread, y = sp.y + Math.sin(ang) * spread;
+            shown[seat][i] = { x, y };
+            const el = tokEls[seat][i];
+            el.classList.remove('moving', 'slow');
+            if (how) el.classList.add(how);
+            el.style.transform = `translate(${(x - 0.45) * cell}px, ${(y - 0.45) * cell}px) scale(${n > 1 ? 0.72 : 1})`;
+          });
+        }
+      }
+
+      /* Panel */
+      const pips = Array.from({ length: 9 }, () => h('span', { class: 'pip' }));
+      const die = h('button', { class: 'die', 'aria-label': 'Dice' }, pips);
+      const face = h('div', { class: 'panel-face', 'aria-hidden': 'true' });
+      const hint = h('div', { class: 'panel-hint', 'aria-live': 'polite' });
+      const wrap = h('div', { class: 'ludo-wrap' }, board);
+      root.append(h('div', { class: 'ludo' }, h('div', { class: 'ludo-side' }, ctx.bar.el), wrap, h('div', { class: 'panel' }, face, die, hint)));
+      const showDie = v => pips.forEach((p, i) => p.classList.toggle('on', !!v && DIE_PIPS[v].includes(i)));
+
+      const layout = () => {
+        const size = Math.floor(Math.min(wrap.clientWidth, wrap.clientHeight));
+        cell = size / 15;
+        board.style.width = board.style.height = `${size}px`;
+        board.style.setProperty('--cs', `${cell}px`);
+        drawTokens();
+      };
+      const ro = new ResizeObserver(layout);
+      ro.observe(wrap);
+      layout();
+
+      const updateBags = () => ps.forEach(p => {
+        ctx.bar.bag(p.seat).textContent = '★'.repeat(st.tok[p.seat].filter(t => t === HOME).length);
+      });
+
+      /* Rules */
+      function legalMoves(seat, v) {
+        const out = [];
+        st.tok[seat].forEach((p, i) => {
+          if (p === YARD) { if (v === 6) out.push({ i, from: p, to: 0 }); }
+          // No exact roll needed to get home: overshooting still counts.
+          else if (p < HOME) out.push({ i, from: p, to: Math.min(HOME, p + v) });
+        });
+        return out;
+      }
+      // How many opponent tokens could land on loop square a with their next roll.
+      function danger(seat, a) {
+        if (LUDO_SAFE.has(a)) return 0;
+        let d = 0;
+        ps.forEach(o => {
+          if (o.seat === seat || !playing(o.seat)) return;
+          for (const p of st.tok[o.seat]) {
+            if (p < 0 || p > LAST_LOOP) continue;
+            const dist = (a - absOf(o.seat, p) + 52) % 52;
+            if (dist >= 1 && dist <= 6 && p + dist <= LAST_LOOP) d++;
+          }
+        });
+        return d;
+      }
+      function victims(seat, to) {
+        if (to > LAST_LOOP) return [];
+        const a = absOf(seat, to);
+        if (LUDO_SAFE.has(a)) return [];
+        const hit = [];
+        ps.forEach(o => {
+          if (o.seat === seat) return;
+          st.tok[o.seat].forEach((p, j) => { if (p >= 0 && p <= LAST_LOOP && absOf(o.seat, p) === a) hit.push([o.seat, j]); });
+        });
+        return hit;
+      }
+      // Semi-smart: weighs captures, safety and progress, with some randomness so it can be beaten.
+      function computerPick(seat, list) {
+        if (Math.random() < 0.15) return list[rand(list.length)];
+        let best = null, bestScore = -Infinity;
+        for (const m of list) {
+          let score = Math.random() * 10 + m.from / 10;
+          if (m.from === YARD) score += 50;
+          if (m.to === HOME) score += 90;
+          else if (m.to > LAST_LOOP) score += m.from <= LAST_LOOP ? 45 : 5;
+          if (m.to <= LAST_LOOP) {
+            const a = absOf(seat, m.to);
+            score += victims(seat, m.to).length * 75;
+            if (LUDO_SAFE.has(a)) score += 15;
+            score -= danger(seat, a) * 25;
+          }
+          if (m.from >= 0 && m.from <= LAST_LOOP) score += danger(seat, absOf(seat, m.from)) * 20;
+          if (score > bestScore) { bestScore = score; best = m; }
+        }
+        return best;
+      }
+
+      /* Turns */
+      function showTurn() {
+        const p = ps[st.turn];
+        ctx.bar.setTurn(st.turn);
+        face.className = `panel-face lc${p.seat}`;
+        face.textContent = p.emoji;
+        die.className = `die lc${p.seat}`;
+      }
+
+      async function startTurn() {
+        if (!alive) return;
+        const p = ps[st.turn];
+        showTurn();
+        if (p.cpu) {
+          phase = 'cpu';
+          hint.textContent = '';
+          await sleep(400);
+          if (alive) roll();
+        } else {
+          phase = 'roll';
+          die.classList.add('ready');
+          hint.textContent = 'Tap to roll';
+          say(`${p.name}, roll the dice!`);
+        }
+      }
+
+      async function roll() {
+        phase = 'rolling';
+        die.classList.remove('ready');
+        die.classList.add('rolling');
+        hint.textContent = '';
+        Sound.play('roll');
+        for (let i = 0; i < 7; i++) { showDie(1 + rand(6)); await sleep(75); if (!alive) return; }
+        const v = 1 + rand(6);
+        const seat = st.turn, p = ps[seat];
+        showDie(v);
+        die.classList.remove('rolling');
+        if (!p.cpu) say(String(v));
+        await sleep(450);
+        if (!alive) return;
+
+        moves = legalMoves(seat, v);
+        if (!moves.length) {
+          // With nobody out of the yard, you get three goes at rolling a 6.
+          const nobodyOut = st.tok[seat].every(t => t === YARD || t === HOME);
+          if (nobodyOut && st.tries < 2) {
+            st.tries++;
+            if (p.cpu) { await sleep(350); if (alive) roll(); return; }
+            phase = 'roll';
+            die.classList.add('ready');
+            hint.textContent = 'Roll again';
+            return;
+          }
+          hint.textContent = 'No move';
+          await sleep(900);
+          if (alive) endTurn(false);
+          return;
+        }
+        if (p.cpu) { move(seat, computerPick(seat, moves), v); return; }
+        // Tokens in the same place make the same move, so only ask when there's a real choice.
+        const distinct = moves.filter((m, k) => moves.findIndex(n => n.from === m.from) === k);
+        if (distinct.length === 1) { move(seat, distinct[0], v); return; }
+        phase = 'pick';
+        rolled = v;
+        hint.textContent = 'Tap a counter';
+        moves.forEach(m => tokEls[seat][m.i].classList.add('movable'));
+      }
+
+      // Taps pick the nearest counter that can move, so small fingers don't need to be precise.
+      board.addEventListener('pointerdown', e => {
+        if (phase !== 'pick') return;
+        const r = board.getBoundingClientRect();
+        const x = (e.clientX - r.left) / cell, y = (e.clientY - r.top) / cell;
+        let best = null, bestDist = Infinity;
+        for (const m of moves) {
+          const q = shown[st.turn][m.i];
+          const d = Math.hypot(q.x - x, q.y - y);
+          if (d < bestDist) { bestDist = d; best = m; }
+        }
+        if (best && bestDist < 3) move(st.turn, best, rolled);
+      });
+      die.addEventListener('click', () => { if (phase === 'roll' && !ps[st.turn].cpu) roll(); });
+
+      async function move(seat, m, v) {
+        phase = 'moving';
+        hint.textContent = '';
+        tokEls[seat].forEach(el => el.classList.remove('movable'));
+        const toks = st.tok[seat];
+        if (m.from === YARD) {
+          toks[m.i] = 0;
+          Sound.play('climb');
+          drawTokens('slow');
+          await sleep(600);
+        } else {
+          for (let k = m.from + 1; k <= m.to; k++) {
+            toks[m.i] = k;
+            drawTokens('moving');
+            Sound.play('hop', k - m.from);
+            await sleep(170);
+            if (!alive) return;
+          }
+        }
+        const hit = victims(seat, m.to);
+        if (hit.length) {
+          await sleep(200);
+          hit.forEach(([o, j]) => { st.tok[o][j] = YARD; });
+          Sound.play('slide');
+          say(`Back to the nest, ${ps[hit[0][0]].name}!`);
+          drawTokens('slow');
+          await sleep(900);
+        }
+        if (!alive) return;
+        if (m.to === HOME) { Sound.play('home'); updateBags(); }
+
+        if (toks.every(t => t === HOME) && playing(seat)) {
+          st.out.push(seat);
+          await sleep(400);
+          if (!alive) return;
+          const left = ps.filter(p => playing(p.seat));
+          const peopleLeft = left.some(p => !p.cpu);
+          if (left.length <= 1 || !peopleLeft || st.keepGoing) {
+            if (left.length <= 1 || !peopleLeft) { gameOver(); return; }
+            Sound.play('cheer');
+            say(`${ps[seat].name} is home!`);
+          } else {
+            // First one home: start again, or let everyone else carry on.
+            const detail = h('p', {}, `${ps[seat].emoji} 🏁`);
+            ctx.finish(`${ps[seat].name} got home first!`, detail, () => {
+              st.keepGoing = true;
+              endTurn(false);
+            });
+            return;
+          }
+        }
+        endTurn(v === 6 && playing(seat));
+      }
+
+      function gameOver() {
+        const order = [...st.out, ...ps.map(p => p.seat).filter(s => playing(s))];
+        ctx.finish(`${ps[st.out[0]].name} got home first!`,
+          h('p', {}, order.map(s => ps[s].emoji + (playing(s) ? '' : '🏁')).join('  ')));
+      }
+
+      function endTurn(again) {
+        st.tries = 0;
+        if (again) {
+          if (!ps[st.turn].cpu) say('Six! Roll again!');
+        } else {
+          do { st.turn = (st.turn + 1) % 4; } while (!playing(st.turn));
+          Sound.play('turn');
+        }
+        ctx.save(st);
+        startTurn();
+      }
+
+      updateBags();
+      showDie(0);
+      startTurn();
+
+      return { destroy() { alive = false; ro.disconnect(); } };
+    },
+  };
+
+  const GAMES = [PAIRS, BUBBLES, SNAKES, LUDO];
 
   showHome();
 })();
