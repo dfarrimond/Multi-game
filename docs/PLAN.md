@@ -78,7 +78,7 @@ journeys: offline, quiet when it needs to be, and quick to pick up and put down.
 ## 3. Candidate games
 
 Three games give some variety: memory (turn-based), action (simultaneous) and
-creative/physics (turn-based).
+a classic board game (turn-based, pure luck).
 
 ### A. Animal Pairs (memory match, turn-based)
 Players take turns flipping two cards. A match makes the animal "come alive"
@@ -97,17 +97,32 @@ in the middle. When the jar is full, everyone celebrates together.
 - Optional "pop only the red ones" mode for older toddlers (colour
   recognition).
 
-### C. Tower Stack (turn-based building)
-Players take turns dropping a chunky block (animals or shapes) onto a wobbly
-tower. When it falls, it falls in a funny way and everyone cheers, because
-the crash is the fun part. A "height so far" marker celebrates new records.
-- Tap to drop: the block swings gently above the tower so no drag is needed.
-- Easy mode makes blocks sticky so towers rarely fall.
+### C. Snakes & Ladders (turn-based board game)
+The classic, made toddler-sized. It suits toddlers well because it's pure
+luck: no skill gap between parent and child, and a slide down a snake is
+nobody's fault.
+- **Tap the big die to roll.** It tumbles, lands, and the spots light up one
+  by one with a spoken or chimed count.
+- **The counter hops by itself**, one square per spot, with a hop sound per
+  square. An optional "tap to hop" mode lets the toddler tap the counter for
+  each hop, which is good counting practice.
+- **Friendly snakes and ladders.** Snakes are smiling slides ("wheee!"), not
+  something scary or a punishment. Ladders get a climbing animation and a
+  cheer.
+- **Board sizes:** small (20 squares, 3 snakes and 3 ladders, die with 1–3
+  spots), medium (50 squares, standard die) and classic (100 squares).
+- **No exact roll needed to finish** by default: going past the last square
+  still counts. "Exact finish" is an option for older children.
+- **Everyone gets home.** When the first player reaches the end, play carries
+  on until the other player arrives too, and then both are celebrated.
+- **Big, bright squares** with numbers and a picture on each square, so the
+  board can be followed without reading numbers.
 
-**Reserve ideas** if one of these doesn't work out: Colour Together (shared
-drawing where players take turns choosing a colour and painting), Feed the
-Animal (take turns giving the right food to a hungry character), and Noughts
-& Crosses with animal tokens (for older toddlers).
+**Reserve ideas** if one of these doesn't work out: Tower Stack (take turns
+dropping blocks onto a wobbly tower, where the crash is the fun part),
+Colour Together (shared drawing where players take turns choosing a colour
+and painting), Feed the Animal (take turns giving the right food to a hungry
+character), and Noughts & Crosses with animal tokens (for older toddlers).
 
 ## 4. User stories
 
@@ -151,44 +166,48 @@ Roles: **Parent**, **Toddler**, **Players** (both together).
 - **US-15** As a parent, I want to give myself a handicap, so my toddler
   contributes and stays engaged.
 
-### Tower Stack
-- **US-16** As a toddler, I want to drop a block with one tap, so I don't need
-  precise dragging.
-- **US-17** As players, we want a funny crash and a cheer when the tower
-  falls, so falling is fun, not failing.
-- **US-18** As a parent, I want an easy mode with stickier blocks, so younger
-  toddlers can build tall towers.
+### Snakes & Ladders
+- **US-16** As a toddler, I want to roll the die by tapping it, and see and
+  hear the spots counted, so I can take my own turn.
+- **US-17** As a toddler, I want my counter to hop square by square (or to
+  tap it for each hop), so I can follow along and practise counting.
+- **US-18** As players, we want snakes to be a fun slide and ladders a happy
+  climb, so going down isn't upsetting.
+- **US-19** As a parent, I want to choose the board size and die (1–3 or
+  1–6), so a game fits a short hop or a long journey.
+- **US-20** As players, we want the game to carry on until we both reach the
+  end, so we finish together and both get celebrated.
 
 ### Train-friendly behaviour
-- **US-19** As a parent, I want the game to pause and keep its state when I
+- **US-21** As a parent, I want the game to pause and keep its state when I
   lock the phone or switch apps, so we can resume after getting off or on.
-- **US-20** As a parent, I want to mute all sounds quickly (and have the app
+- **US-22** As a parent, I want to mute all sounds quickly (and have the app
   respect the silent switch), so we don't disturb other passengers.
-- **US-21** As a parent, I want every sound to have a matching visual cue, so
+- **US-23** As a parent, I want every sound to have a matching visual cue, so
   the games still work on mute.
-- **US-22** As a parent, I want the app to use little battery, so my phone
+- **US-24** As a parent, I want the app to use little battery, so my phone
   lasts the journey.
 
 ### Safety and parental control
-- **US-23** As a parent, I want leaving a game or opening settings to need a
+- **US-25** As a parent, I want leaving a game or opening settings to need a
   press-and-hold, so my toddler can't wander off by accident.
-- **US-24** As a parent, I want guidance on turning on Guided Access, so my
+- **US-26** As a parent, I want guidance on turning on Guided Access, so my
   toddler can't leave the app.
-- **US-25** As a parent, I want no ads, purchases, links or data collection,
+- **US-27** As a parent, I want no ads, purchases, links or data collection,
   so I can hand over the phone without worrying.
 
 ## 5. Suggested build order
 
 1. **Foundation:** Xcode project, app shell, home screen, player setup,
    parent gate, sound manager, pause/resume, shared turn and celebration
-   components. (US-01–09, 19–25)
+   components. (US-01–09, 21–27)
 2. **Game 1: Animal Pairs.** It's the simplest turn-based game and proves
    the framework. (US-10–12)
 3. **Real-world test:** play it on an actual train journey and adjust
    target sizes, timing and sounds.
 4. **Game 2: Bubble Pop** (US-13–15)
-5. **Game 3: Tower Stack** (US-16–18). Physics needs the most tuning, so it
-   comes last.
+5. **Game 3: Snakes & Ladders** (US-16–20). This needs the most new art
+   (board, snakes, ladders, die), so it comes last.
 6. **Polish:** art, sounds, app icon, accessibility pass, and TestFlight to
    your own device.
 
@@ -202,7 +221,9 @@ Roles: **Parent**, **Toddler**, **Players** (both together).
    You need Xcode to build and run on a device. A free account can sideload
    to your own phone (re-signing every 7 days); a paid account allows
    TestFlight and stable installs.
-4. **Are these three games right?** Any favourite characters or themes
+4. **Bubble Pop or Tower Stack?** Snakes & Ladders replaced Tower Stack to
+   keep the app at three games. Bubble Pop stayed because it's the only
+   game where both players play at once. Any favourite characters or themes
    (trains, dinosaurs, a particular TV show's *style*) to build around?
 5. **Art and sound:** are simple shapes and emoji-style art fine to start,
    with nicer assets later?
