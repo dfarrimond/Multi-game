@@ -10,7 +10,7 @@ journeys: offline, quiet when it needs to be, and quick to pick up and put down.
 
 | Player | Needs |
 | --- | --- |
-| **Toddler (about 2–4 years)** | Big targets, instant feedback, no reading, no fail states, short games. Fine motor control is still developing (taps work; precise drags are harder). Attention span is 1–5 minutes per game. |
+| **Child (4 years old)** | Big targets, instant feedback, no reading, no fail states, short games. Can count to about 10 and is starting to recognise numbers. Taps are reliable; simple drags are OK if forgiving. Attention span is about 3–10 minutes per game. Understands taking turns, but losing can still sting. |
 | **Parent** | Set up a game in seconds, one-handed if needed. Fun enough not to be boring. Confident nothing will pop up, charge money or go online. Can stop and resume at any station. |
 
 ## 2. Broad principles
@@ -213,8 +213,13 @@ Roles: **Parent**, **Toddler**, **Players** (both together).
 
 ## 6. Open questions
 
-1. **Toddler's age?** This sets the default difficulty and whether
-   Noughts & Crosses is worth including.
+1. ~~**Toddler's age?**~~ **Answered: 4.** Defaults are set for a 4-year-old:
+   - Animal Pairs starts at 6 pairs (3x4), with 8 pairs available.
+   - Snakes & Ladders starts on the medium board (50 squares) with a normal
+     1–6 die. "Tap to hop" is on by default for counting practice.
+   - Bubble Pop's "pop only one colour" mode is available from the start.
+   - Easier levels stay in for tired days. Noughts & Crosses is a realistic
+     reserve game at this age.
 2. **iPhone, iPad or both?** iPad makes split-screen games much
    nicer; iPhone is what's usually in your pocket on a train.
 3. **Do you have a Mac with Xcode, and an Apple Developer account?**
