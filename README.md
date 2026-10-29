@@ -3,7 +3,9 @@ A multi game player for train journeys with a toddler.
 
 Games for a grown-up and a 4-year-old on one iPhone: **Animal Pairs**,
 **Bubble Pop** and **Snakes & Ladders** for two, and **Ludo** for up to four
-people, with computer players filling any empty seats. See
+people, with computer players filling any empty seats. **Window Bingo** is a
+whole-journey game: spot things out of the train window and stamp them on a
+shared card. See
 [docs/PLAN.md](docs/PLAN.md) for the principles and user stories.
 
 ## Web MVP (`web/`)

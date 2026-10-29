@@ -233,6 +233,7 @@
         h('li', {}, 'To leave a game, press and hold 🏠 for about a second. A quick tap does nothing.'),
         h('li', {}, 'To stop little fingers leaving Safari: Settings → Accessibility → Guided Access → On. Then triple-click the side button while playing.'),
         h('li', {}, 'Games save as you go. Lock the phone at a station and carry on later.'),
+        h('li', {}, 'In Window Bingo, press and hold a picture to swap it for something else, or to take off a star tapped by mistake.'),
         h('li', {}, 'Open the page while you still have signal. Once it has loaded it keeps working through tunnels.')),
       h('div', { class: 'overlay-actions' }, h('button', { class: 'play-btn', onclick: () => o.remove() }, 'OK')));
   }
@@ -293,7 +294,7 @@
         celebrate({ ps, title, detail, onKeepGoing, onAgain: () => playGame(game, choice, null), onHome: showHome });
       },
     });
-    keepAwake();
+    if (game.keepAwake !== false) keepAwake();
   }
 
   // Fit n equal cards (3:4) into a box, using only layouts with no gaps.
@@ -1194,7 +1195,151 @@
     },
   };
 
-  const GAMES = [PAIRS, BUBBLES, SNAKES, LUDO];
+  /* ---------- Game 5: Window Bingo ---------- */
+  // Things to spot from a train. `where` is country, town or both; rare ones are the big moments.
+  const SIGHTS = [
+    ['🐄', 'Cow', 'country'], ['🐑', 'Sheep', 'country'], ['🐴', 'Horse', 'country'], ['🚜', 'Tractor', 'country'],
+    ['🐖', 'Pig', 'country'], ['🦆', 'Duck', 'country'], ['🌾', 'Field', 'country'], ['🏡', 'Farmhouse', 'country'],
+    ['🌼', 'Flowers', 'country'], ['⛰️', 'Hill', 'country'],
+    ['🚌', 'Bus', 'town'], ['🚚', 'Lorry', 'town'], ['🚲', 'Bike', 'town'], ['⛪', 'Church', 'town'],
+    ['🏢', 'Tall building', 'town'], ['🏗️', 'Crane', 'town'], ['🚦', 'Traffic lights', 'town'], ['🏪', 'Shop', 'town'],
+    ['🌳', 'Tree', 'both'], ['🚗', 'Car', 'both'], ['🏠', 'House', 'both'], ['🐦', 'Bird', 'both'],
+    ['☁️', 'Cloud', 'both'], ['🐕', 'Dog', 'both'], ['🌉', 'Bridge', 'both'], ['🚆', 'Another train', 'both'],
+    ['🌈', 'Rainbow', 'both', true], ['✈️', 'Aeroplane', 'both', true], ['🚁', 'Helicopter', 'both', true],
+    ['⛵', 'Boat', 'both', true], ['🏰', 'Castle', 'both', true], ['🦌', 'Deer', 'country', true],
+    ['🐇', 'Rabbit', 'country', true], ['🚒', 'Fire engine', 'town', true], ['🦢', 'Swan', 'both', true],
+  ].map(([emoji, name, where, rare = false], id) => ({ id, emoji, name, where, rare }));
+
+  const BINGO = {
+    id: 'bingo', name: 'Window Bingo', icon: '🪟',
+    keepAwake: false, // a whole-journey game: let the screen sleep between spots
+    levelLabel: 'Card size',
+    levels: [
+      { id: '3', label: '3 × 3', sub: '9 things', icon: '🟩', size: 3 },
+      { id: '4', label: '4 × 4', sub: '16 things · long trips', icon: '🟦', size: 4 },
+    ],
+    defaultLevel: '3',
+    options: [{ id: 'where', label: 'Out of the window', choices: [
+      { id: 'mixed', label: 'A bit of both', icon: '🌍' }, { id: 'country', label: 'Countryside', icon: '🐄' }, { id: 'town', label: 'Towns', icon: '🏢' },
+    ] }],
+    defaultOpts: { where: 'mixed' },
+
+    create(root, ctx) {
+      const n = ctx.level.size;
+      const pool = SIGHTS.filter(s => ctx.opts.where === 'mixed' || s.where === 'both' || s.where === ctx.opts.where);
+      let st = ctx.saved;
+      if (!st || st.items?.length !== n * n) {
+        const rare = shuffle(pool.filter(s => s.rare)).slice(0, n === 3 ? 1 : 2);
+        const common = shuffle(pool.filter(s => !s.rare)).slice(0, n * n - rare.length);
+        st = { items: shuffle([...common, ...rare]).map(s => s.id), stamped: Array(n * n).fill(false), lines: [] };
+      }
+      let alive = true;
+      ctx.bar.setTurn('both');
+
+      // Rows, columns and both diagonals, as lists of square indices.
+      const LINES = [];
+      for (let i = 0; i < n; i++) {
+        LINES.push([...Array(n)].map((_, k) => i * n + k));
+        LINES.push([...Array(n)].map((_, k) => k * n + i));
+      }
+      LINES.push([...Array(n)].map((_, k) => k * n + k));
+      LINES.push([...Array(n)].map((_, k) => k * n + (n - 1 - k)));
+
+      const grid = h('div', { class: 'bingo-grid', style: `--n:${n}` });
+      const count = h('div', { class: 'bingo-count', 'aria-live': 'polite' });
+      root.append(h('div', { class: 'bingo' }, h('div', { class: 'bingo-wrap' }, grid),
+        h('div', { class: 'bingo-side' }, count, h('div', { class: 'bingo-hint' }, 'Shout it, then tap it!'))));
+
+      const cells = st.items.map((_, i) => {
+        const cell = h('button', { class: 'bingo-cell' },
+          h('span', { class: 'bingo-pic', 'aria-hidden': 'true' }), h('span', { class: 'bingo-stamp', 'aria-hidden': 'true' }, '⭐'));
+        // Press and hold is for grown-ups: swap a picture that isn't around today, or undo a mistaken star.
+        let timer = null, swapped = false;
+        cell.addEventListener('pointerdown', () => {
+          swapped = false;
+          timer = setTimeout(() => { timer = null; swapped = true; if (st.stamped[i]) unstamp(i); else swap(i); }, 700);
+        });
+        const cancel = () => { if (timer) { clearTimeout(timer); timer = null; } };
+        ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => cell.addEventListener(ev, cancel));
+        cell.addEventListener('contextmenu', e => e.preventDefault());
+        cell.addEventListener('click', () => { if (!swapped) tap(i); });
+        grid.append(cell);
+        return cell;
+      });
+
+      const sight = i => SIGHTS[st.items[i]];
+      function render(i) {
+        const s = sight(i);
+        cells[i].querySelector('.bingo-pic').textContent = s.emoji;
+        cells[i].setAttribute('aria-label', `${s.name}${st.stamped[i] ? ', spotted' : ''}`);
+        cells[i].classList.toggle('stamped', st.stamped[i]);
+        cells[i].classList.toggle('rare', s.rare);
+      }
+      const renderAll = () => {
+        cells.forEach((_, i) => render(i));
+        cells.forEach(c => c.classList.remove('in-line'));
+        st.lines.forEach(l => LINES[l].forEach(i => cells[i].classList.add('in-line')));
+        count.textContent = `${st.stamped.filter(Boolean).length} / ${n * n}`;
+      };
+
+      const layout = () => {
+        const wrap = grid.parentElement;
+        const size = Math.floor(Math.min(wrap.clientWidth, wrap.clientHeight));
+        grid.style.width = grid.style.height = `${size}px`;
+        grid.style.setProperty('--cellsize', `${size / n}px`);
+      };
+      const ro = new ResizeObserver(layout);
+      ro.observe(grid.parentElement);
+      layout();
+      renderAll();
+
+      function swap(i) {
+        if (st.stamped[i]) return;
+        const used = new Set(st.items);
+        const options = pool.filter(s => !used.has(s.id) && s.rare === sight(i).rare);
+        const pick = options.length ? options[rand(options.length)] : pool.find(s => !used.has(s.id));
+        if (!pick) return;
+        st.items[i] = pick.id;
+        Sound.play('flip');
+        say(pick.name);
+        cells[i].classList.remove('swapped');
+        void cells[i].offsetWidth;
+        cells[i].classList.add('swapped');
+        renderAll();
+        ctx.save(st);
+      }
+
+      function unstamp(i) {
+        st.stamped[i] = false;
+        st.lines = st.lines.filter(l => !LINES[l].includes(i));
+        Sound.play('wobble');
+        renderAll();
+        ctx.save(st);
+      }
+
+      function tap(i) {
+        if (!alive) return;
+        const s = sight(i);
+        if (st.stamped[i]) { Sound.play('tap'); say(s.name); return; }
+        st.stamped[i] = true;
+        Sound.play(s.rare ? 'climb' : 'pop');
+        say(s.rare ? `Wow, a ${s.name.toLowerCase()}!` : `${s.name}! Well spotted!`);
+        const newLines = LINES.map((l, k) => k).filter(k => !st.lines.includes(k) && LINES[k].every(j => st.stamped[j]));
+        st.lines.push(...newLines);
+        renderAll();
+        ctx.save(st);
+        if (st.stamped.every(Boolean)) {
+          setTimeout(() => { if (alive) ctx.finish('We filled the card!', h('p', {}, st.items.map(id => SIGHTS[id].emoji).join(''))); }, 900);
+        } else if (newLines.length) {
+          setTimeout(() => { if (!alive) return; Sound.play('match'); say('A line! Hooray!'); }, 700);
+        }
+      }
+
+      return { destroy() { alive = false; ro.disconnect(); } };
+    },
+  };
+
+  const GAMES = [PAIRS, BUBBLES, SNAKES, LUDO, BINGO];
 
   showHome();
 })();
